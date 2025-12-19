@@ -4,11 +4,10 @@ import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ProfilesModule } from './profiles/profiles.module';
-import { SocietiesModule } from './societies/societies.module';
-import { EventsModule } from './events/events.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
+import { GroupsModule } from './groups/groups.module';
 
 @Module({
   imports: [
@@ -22,11 +21,10 @@ import { MailModule } from './mail/mail.module';
       }),
     }),
     ProfilesModule,
-    SocietiesModule,
-    EventsModule,
     UsersModule,
     AuthModule,
     MailModule,
+    GroupsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

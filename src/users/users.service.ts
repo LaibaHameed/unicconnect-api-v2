@@ -7,8 +7,7 @@ import { ProfilesService } from '../profiles/profiles.service';
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    private readonly profilesService: ProfilesService,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>
   ) { }
 
   createUser = async (data: Partial<User>) => {
@@ -30,44 +29,6 @@ export class UsersService {
 
   findById = async (id: string) => {
     return this.userModel.findById(id).exec();
-  };
-
-  createUserAndProfile = async (data: {
-    email: string;
-    password: string;
-  }) => {
-    const session = await this.userModel.db.startSession();
-    session.startTransaction();
-
-    try {
-      const user = await this.userModel.create(
-        [
-          {
-            email: data.email.toLowerCase().trim(),
-            password: data.password,
-          },
-        ],
-        { session },
-      );
-
-      const savedUser = user[0];
-
-      const profile = await this.profilesService.createEmptyProfile(savedUser._id);
-
-      savedUser.profile = profile._id as unknown as Types.ObjectId;
-      savedUser.profileCompleted = false;
-
-      await savedUser.save({ session });
-
-      await session.commitTransaction();
-      session.endSession();
-
-      return savedUser;
-    } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
-      throw error;
-    }
   };
 
   updateByEmail = async (email: string, data: Partial<User>) => {

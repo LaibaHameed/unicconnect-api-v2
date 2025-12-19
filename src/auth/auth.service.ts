@@ -11,14 +11,14 @@ import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from '../users/users.service';
-import { ProfilesService } from '../profiles/profiles.service';
+// import { ProfilesService } from '../profiles/profiles.service';
 import { Types } from 'mongoose';
 
 @Injectable()
 export class AuthService {
     constructor(
         private readonly usersService: UsersService,
-        private readonly profilesService: ProfilesService,
+        // private readonly profilesService: ProfilesService,
         private readonly jwtService: JwtService,
         private readonly mailService: MailService,
     ) { }
@@ -242,32 +242,4 @@ export class AuthService {
         }
     };
 
-    /**
-     * We'll expose this later from ProfilesController with auth guard.
-     * Logic stays same: update profile fields + mark profileCompleted true.
-     */
-    completeProfile = async (
-        userId: string,
-        data: { department?: string; degree?: string; semester?: number },
-    ): Promise<{ message: string }> => {
-        try {
-            const user = await this.usersService.findById(userId);
-            if (!user) throw new BadRequestException('Invalid user');
-
-            const profileUserId = user._id as Types.ObjectId;
-
-            await this.profilesService.updateProfileByUserId(profileUserId, {
-                department: data.department ?? undefined,
-                degreeProgram: data.degree ?? undefined,
-                semester: data.semester ?? undefined,
-            });
-
-            await this.usersService.updateById(userId, { profileCompleted: true });
-
-            return { message: 'Profile updated.' };
-        } catch (error) {
-            console.error('Error in completeProfile:', error);
-            throw error;
-        }
-    };
 }

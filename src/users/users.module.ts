@@ -6,8 +6,7 @@ import { ProfilesModule } from '../profiles/profiles.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    ProfilesModule,
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }])
   ],
   providers: [UsersService],
   exports: [UsersService],
