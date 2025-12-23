@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserProfile, UserProfileDocument } from './schemas/user-profile.schema';
@@ -17,25 +17,41 @@ export class ProfilesService {
 
   createProfile = async (userId: Types.ObjectId, dto: ProfileSetupDto) => {
     try {
-      const exists = await this.profileModel.findOne({ userId }).exec();
-      if (exists) throw new ConflictException('Profile already exists');
-
-      const profile = new this.profileModel({
+      const payload = {
         userId,
         fullName: dto.fullName.trim(),
         username: dto.username.toLowerCase().trim(),
         universityName: dto.universityName ?? null,
         department: dto.department ?? null,
         degreeProgram: dto.degreeProgram ?? null,
+        degreeLevel: dto.degreeLevel ?? null,
+        semester: dto.semester ?? null,
+      };
+
+      const result = await this.profileModel.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: payload },
+        { new: true, upsert: true }
+      );
+
+      return result;
+    } catch (error: any) {
+      console.log("CREATE PROFILE ERROR:", {
+        code: error?.code,
+        keyPattern: error?.keyPattern,
+        keyValue: error?.keyValue,
+        message: error?.message,
       });
 
-      return await profile.save();
-    } catch (error: any) {
-      if (error?.code === 11000) throw new ConflictException('Username or studentId already in use');
+      if (error?.code === 11000) {
+        const field = Object.keys(error?.keyPattern || {})[0] || "field";
+        const value = error?.keyValue?.[field];
+        throw new ConflictException(`${field} already in use (${value})`);
+      }
       throw error;
     }
-  };
 
+  };
 
   updateProfile = async (userId: Types.ObjectId, data: Partial<UserProfile>) => {
     try {
@@ -45,10 +61,13 @@ export class ProfilesService {
         .findOneAndUpdate({ userId }, { $set: data }, { new: true })
         .exec();
 
-      if (!updated) throw new NotFoundException('Profile not found');
+      if (!updated) throw new ConflictException('Profile not found');
       return updated;
     } catch (error: any) {
-      if (error?.code === 11000) throw new ConflictException('Username or studentId already in use');
+      if (error?.code === 11000) {
+        const field = Object.keys(error?.keyPattern || {})[0] || 'field';
+        throw new ConflictException(`${field} already in use`);
+      }
       throw error;
     }
   };

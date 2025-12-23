@@ -57,8 +57,9 @@ export class UserProfile {
   @Prop({ type: String, default: null, trim: true })
   section?: string;
 
-  @Prop({ type: String, default: null, unique: true, sparse: true, trim: true })
+  @Prop({ type: String, unique: true, sparse: true, trim: true })
   studentId?: string;
+
 
   // University info
   @Prop({ type: String, default: null, trim: true })

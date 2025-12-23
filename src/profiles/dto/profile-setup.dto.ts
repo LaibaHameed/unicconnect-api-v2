@@ -1,4 +1,13 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import {
+    IsOptional,
+    IsString,
+    MinLength,
+    IsEnum,
+    IsInt,
+    Min,
+    Max,
+} from 'class-validator';
+import { DegreeLevel } from '../schemas/user-profile.schema'; // adjust path if needed
 
 export class ProfileSetupDto {
     @IsString()
@@ -20,4 +29,16 @@ export class ProfileSetupDto {
     @IsOptional()
     @IsString()
     degreeProgram?: string;
+
+    // ✅ ADDED
+    @IsOptional()
+    @IsEnum(DegreeLevel)
+    degreeLevel?: DegreeLevel;
+
+    // ✅ ADDED
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    @Max(20)
+    semester?: number;
 }
