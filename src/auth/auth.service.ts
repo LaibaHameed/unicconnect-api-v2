@@ -1,6 +1,8 @@
 import {
     BadRequestException,
     ConflictException,
+    forwardRef,
+    Inject,
     Injectable,
     UnauthorizedException,
 } from '@nestjs/common';
@@ -11,14 +13,16 @@ import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from '../users/users.service';
-// import { ProfilesService } from '../profiles/profiles.service';
+import { ProfilesService } from '../profiles/profiles.service';
 import { Types } from 'mongoose';
 
 @Injectable()
 export class AuthService {
+    [x: string]: any;
     constructor(
         private readonly usersService: UsersService,
-        // private readonly profilesService: ProfilesService,
+        @Inject(forwardRef(() => ProfilesService))
+        private readonly profilesService: ProfilesService,
         private readonly jwtService: JwtService,
         private readonly mailService: MailService,
     ) { }
@@ -80,35 +84,46 @@ export class AuthService {
     };
 
 
-    verifyEmail = async (dto: VerifyEmailDto): Promise<{ message: string }> => {
+    verifyEmail = async (dto: VerifyEmailDto) => {
         try {
             const email = dto.email.toLowerCase().trim();
             const user = await this.usersService.findByEmail(email);
 
-            if (!user) throw new BadRequestException('Invalid email or code');
-
-            if (!user.verificationCode || !user.verificationExpiresAt) {
-                throw new BadRequestException('No verification request found');
-            }
-
-            if (user.verificationExpiresAt < new Date()) {
-                throw new BadRequestException('Verification code expired');
-            }
-
-            if (user.verificationCode !== dto.code) {
+            if (!user || user.verificationCode !== dto.code) {
                 throw new BadRequestException('Invalid verification code');
             }
 
-            await this.usersService.updateByEmail(email, {
+            if (user.verificationExpiresAt && user.verificationExpiresAt < new Date()) {
+                throw new BadRequestException('Verification code expired');
+            }
+
+            const updatedUser = await this.usersService.updateByEmail(email, {
                 emailVerified: true,
                 verificationCode: undefined,
                 verificationExpiresAt: undefined,
             });
 
+            if (!updatedUser) throw new BadRequestException('User not found');
+
+            try {
+                // Use the name provided during registration for the profile
+                const tempUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') + Math.floor(1000 + Math.random() * 9000);
+
+                await this.profilesService.createProfile(updatedUser._id as any, {
+                    fullName:  "New Student", // Link name from User to Profile
+                    username: tempUsername,
+                    universityName: "",
+                    department: "",
+                    degreeLevel: undefined,
+                    degreeProgram: "",
+                    semester: undefined
+                });
+            } catch (e) {
+                console.error("Auto-profile generation failed", e);
+            }
 
             return { message: 'Email verified successfully.' };
         } catch (error) {
-            console.error('Error in verifyEmail:', error);
             throw error;
         }
     };

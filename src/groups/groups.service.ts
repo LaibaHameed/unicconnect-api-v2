@@ -15,6 +15,7 @@ import { CreateJoinRequestDto } from './dto/create-join-request.dto';
 import { JoinPolicy, GroupStatus, JoinRequestStatus, MemberRole } from './enums/group.enums';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AppRole } from '../auth/decorators/roles.decorator';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class GroupsService {
@@ -23,7 +24,8 @@ export class GroupsService {
     @InjectModel(GroupMember.name) private readonly memberModel: Model<GroupMemberDocument>,
     @InjectModel(GroupJoinRequest.name)
     private readonly joinRequestModel: Model<GroupJoinRequestDocument>,
-  ) {}
+    private readonly usersService: UsersService
+  ) { }
 
   private toObjectId = (id: string) => {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid id');
@@ -145,6 +147,11 @@ export class GroupsService {
   // ============ JOIN REQUESTS ============
 
   createJoinRequest = async (groupId: string, dto: CreateJoinRequestDto, user: any) => {
+    const userDoc = await this.usersService.findById(user._id);
+    if (!userDoc?.profileCompleted) {
+        throw new BadRequestException('Please complete your profile before joining groups');
+    }
+
     const _id = this.toObjectId(groupId);
 
     const group = await this.getGroupById(groupId);
@@ -253,6 +260,27 @@ export class GroupsService {
     );
 
     return { message: 'Request cancelled' };
+  };
+
+  getMyJoinRequest = async (groupId: string, user: any) => {
+    const gId = this.toObjectId(groupId);
+    const uId = this.toObjectId(user._id);
+
+    const result = await this.joinRequestModel.findOne({
+      groupId: gId,
+      userId: uId,
+      status: JoinRequestStatus.PENDING,
+    });
+
+    // ADD THIS LOG
+    // console.log('DEBUG: DB Fetch Join Request', {
+    //   searchingForUser: uId,
+    //   searchingForGroup: gId,
+    //   foundRecord: !!result,
+    //   statusFound: result?.status
+    // });
+
+    return result;
   };
 
   // ============ MEMBERS ============

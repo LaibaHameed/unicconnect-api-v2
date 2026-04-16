@@ -57,16 +57,20 @@ export class ProfilesService {
     try {
       if (data.username) data.username = String(data.username).toLowerCase().trim();
 
+      // Use { upsert: true } to create it if it doesn't exist
       const updated = await this.profileModel
-        .findOneAndUpdate({ userId }, { $set: data }, { new: true })
+        .findOneAndUpdate(
+          { userId },
+          { $set: data },
+          { new: true, upsert: true }
+        )
         .exec();
 
-      if (!updated) throw new ConflictException('Profile not found');
       return updated;
     } catch (error: any) {
+      // Handle duplicate username errors
       if (error?.code === 11000) {
-        const field = Object.keys(error?.keyPattern || {})[0] || 'field';
-        throw new ConflictException(`${field} already in use`);
+        throw new ConflictException('Username or Student ID already in use');
       }
       throw error;
     }
