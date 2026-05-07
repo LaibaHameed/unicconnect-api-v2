@@ -41,13 +41,25 @@ export class ProfilesController {
     };
   }
 
+  // profiles.controller.ts
   @Patch('me')
   @UseGuards(JwtAuthGuard)
-  update(
+  async update(
     @CurrentUser() user: any,
     @Body() dto: UpdateProfileDto,
   ) {
-    return this.profilesService.updateProfile(user._id, dto);
+    // 1. Update (or create via upsert) the profile document
+    const updatedProfile = await this.profilesService.updateProfile(user._id, dto);
+
+    // 2. If the user record isn't marked as complete, mark it now
+    if (!user.profileCompleted) {
+      await this.usersService.updateById(user._id.toString(), {
+        profileCompleted: true,
+        profile: updatedProfile._id,
+      });
+    }
+
+    return updatedProfile;
   }
 
 }
