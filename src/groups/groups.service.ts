@@ -15,7 +15,7 @@ import { CreateJoinRequestDto } from './dto/create-join-request.dto';
 import { JoinPolicy, GroupStatus, JoinRequestStatus, MemberRole } from './enums/group.enums';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AppRole } from '../auth/decorators/roles.decorator';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class GroupsService {

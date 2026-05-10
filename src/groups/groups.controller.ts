@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -22,11 +23,15 @@ import { CreateJoinRequestDto } from './dto/create-join-request.dto';
 import { DecideJoinRequestDto } from './dto/decide-join-request.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { GroupStatus } from './enums/group.enums';
+import { EventsService } from '../events/events.service';
+import { CreateEventDto } from '../events/dto/create-event.dto';
 
 @Controller('groups')
 @UsePipes(new ValidationPipe({ whitelist: true }))
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) { }
+  constructor(private readonly groupsService: GroupsService,
+    private readonly eventsService: EventsService
+  ) { }
 
   // ✅ 1. STATIC routes first (no params)
   @Get()
@@ -44,6 +49,17 @@ export class GroupsController {
   @Post()
   create(@Body() dto: CreateGroupDto, @CurrentUser() user: any) {
     return this.groupsService.createGroup(dto, user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':groupId/events')
+  @HttpCode(201)
+  createEvent(
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateEventDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.eventsService.create(dto, user._id.toString(), groupId);
   }
 
   // ✅ 2. Specific sub-path routes before generic :groupId
@@ -147,3 +163,5 @@ export class GroupsController {
     return this.groupsService.softDeleteGroup(groupId, user);
   }
 }
+
+

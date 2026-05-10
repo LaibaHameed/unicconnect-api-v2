@@ -8,6 +8,8 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
 import { GroupsModule } from './groups/groups.module';
+import { EventsModule } from './events/events.module';
+import { AiSummaryModule } from './ai-summary/ai-summary.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { GroupsModule } from './groups/groups.module';
     AuthModule,
     MailModule,
     GroupsModule,
+    EventsModule,
+    AiSummaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
