@@ -6,10 +6,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ProfilesModule } from './profiles/profiles.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
-import { MailModule } from './mail/mail.module';
 import { GroupsModule } from './groups/groups.module';
 import { EventsModule } from './events/events.module';
 import { AiSummaryModule } from './ai-summary/ai-summary.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [

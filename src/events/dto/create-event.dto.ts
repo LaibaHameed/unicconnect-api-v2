@@ -1,11 +1,14 @@
 import {
     IsArray,
+    IsBoolean,
     IsDateString,
+    IsEmail,
     IsEnum,
     IsNotEmpty,
     IsOptional,
     IsString,
     IsUrl,
+    Matches,
     MaxLength,
     MinLength,
     Validate,
@@ -13,6 +16,7 @@ import {
     ValidatorConstraintInterface,
     ValidationArguments,
 } from 'class-validator';
+
 import { Transform } from 'class-transformer';
 import { EventMode, EventType } from '../enums/event.enums';
 
@@ -30,6 +34,24 @@ class IsAfterStartDate implements ValidatorConstraintInterface {
 
     defaultMessage(): string {
         return 'endDateTime must be after startDateTime';
+    }
+}
+
+@ValidatorConstraint({ name: 'registrationLinkRequired', async: false })
+class RegistrationLinkRequired
+    implements ValidatorConstraintInterface {
+    validate(_: any, args: ValidationArguments): boolean {
+        const dto = args.object as CreateEventDto;
+
+        if (dto.isRegistrationRequired) {
+            return !!dto.registrationLink;
+        }
+
+        return true;
+    }
+
+    defaultMessage(): string {
+        return 'registrationLink is required when registration is enabled';
     }
 }
 
@@ -78,6 +100,32 @@ export class CreateEventDto {
     @IsOptional()
     @Transform(({ value }) => value?.trim() ?? null)
     registrationLink?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(30)
+    whatsappNumber?: string;
+
+    @IsOptional()
+    @IsEmail()
+    contactEmail?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    instagramHandle?: string;
+
+    @IsBoolean()
+    @Transform(({ value }) => {
+        if (value === 'true' || value === true) return true;
+        if (value === 'false' || value === false) return false;
+
+        return false;
+    })
+    isRegistrationRequired!: boolean;
+
+    @Validate(RegistrationLinkRequired)
+    registrationValidation!: boolean;
 
     @IsArray()
     @IsString({ each: true })

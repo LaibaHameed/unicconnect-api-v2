@@ -9,6 +9,7 @@ import { GroupJoinRequest, GroupJoinRequestSchema } from './schemas/group-join-r
 import { UsersModule } from '../users/users.module';
 import { GroupAdminHelper } from '../common/helpers/group-admin.helper';
 import { EventsModule } from 'src/events/events.module';
+import { UserProfile, UserProfileSchema } from 'src/profiles/schemas/user-profile.schema';
 
 @Module({
   imports: [
@@ -18,16 +19,17 @@ import { EventsModule } from 'src/events/events.module';
       { name: Group.name, schema: GroupSchema },
       { name: GroupMember.name, schema: GroupMemberSchema },
       { name: GroupJoinRequest.name, schema: GroupJoinRequestSchema },
+      { name: UserProfile.name, schema: UserProfileSchema},
     ]),
   ],
   controllers: [GroupsController],
   providers: [
-    GroupsService, 
+    GroupsService,
     GroupAdminHelper // 1. Register it as a provider here
   ],
   exports: [
-    GroupsService, 
+    GroupsService,
     GroupAdminHelper // 2. Now you are allowed to export it
   ],
 })
-export class GroupsModule {}
+export class GroupsModule { }

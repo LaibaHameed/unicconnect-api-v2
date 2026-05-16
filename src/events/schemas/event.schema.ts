@@ -64,6 +64,20 @@ export class Event {
 
     @Prop({ type: Date, default: null })
     deletedAt!: Date | null;
+
+    // Contact Information
+    @Prop({ type: String, default: null, trim: true })
+    whatsappNumber!: string | null;
+
+    @Prop({ type: String, default: null, trim: true })
+    contactEmail!: string | null;
+
+    @Prop({ type: String, default: null, trim: true })
+    instagramHandle!: string | null;
+
+    // Registration Logic
+    @Prop({ type: Boolean, default: false })
+    isRegistrationRequired!: boolean;
 }
 
 export const EventSchema = SchemaFactory.createForClass(Event);

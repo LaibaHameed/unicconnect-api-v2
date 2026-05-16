@@ -16,14 +16,15 @@ import { JoinPolicy, GroupStatus, JoinRequestStatus, MemberRole } from './enums/
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AppRole } from '../auth/decorators/roles.decorator';
 import { UsersService } from '../users/users.service';
+import { UserProfile, UserProfileDocument } from 'src/profiles/schemas/user-profile.schema';
 
 @Injectable()
 export class GroupsService {
   constructor(
     @InjectModel(Group.name) private readonly groupModel: Model<GroupDocument>,
     @InjectModel(GroupMember.name) private readonly memberModel: Model<GroupMemberDocument>,
-    @InjectModel(GroupJoinRequest.name)
-    private readonly joinRequestModel: Model<GroupJoinRequestDocument>,
+    @InjectModel(GroupJoinRequest.name) private readonly joinRequestModel: Model<GroupJoinRequestDocument>,
+    @InjectModel(UserProfile.name) private readonly userProfileModel: Model<UserProfileDocument>,
     private readonly usersService: UsersService
   ) { }
 
@@ -149,7 +150,7 @@ export class GroupsService {
   createJoinRequest = async (groupId: string, dto: CreateJoinRequestDto, user: any) => {
     const userDoc = await this.usersService.findById(user._id);
     if (!userDoc?.profileCompleted) {
-        throw new BadRequestException('Please complete your profile before joining groups');
+      throw new BadRequestException('Please complete your profile before joining groups');
     }
 
     const _id = this.toObjectId(groupId);
@@ -287,9 +288,57 @@ export class GroupsService {
 
   listMembers = async (groupId: string) => {
     const gId = this.toObjectId(groupId);
-    return this.memberModel
-      .find({ groupId: gId, isActive: true })
-      .populate('userId', 'name email');
+
+    // 1. Fetch members and populate user info
+    const members = await this.memberModel
+      .find({
+        groupId: gId,
+        isActive: true,
+      })
+      .populate('userId', 'email')
+      .lean();
+
+    // 2. Extract User IDs and ensure they are cast to ObjectId for the query
+    // Filter out any potential nulls to prevent query errors
+    const userIds = members
+      .map((member: any) => member.userId?._id)
+      .filter((id) => id != null)
+      .map((id) => new Types.ObjectId(id));
+
+    if (userIds.length === 0) return members;
+    // console.log('Searching for Profiles with IDs:', userIds);
+
+    // 3. Fetch profiles using the casted ObjectIds
+    const profiles = await this.userProfileModel
+      .find({
+        userId: { $in: userIds },
+      })
+      .select('userId fullName username profileImageUrl')
+      .lean();
+
+    // console.log(' Profiles with IDs:', profiles);
+    // 4. Create the Map using String keys for guaranteed matching
+    const profileMap = new Map(
+      profiles.map((profile: any) => [
+        profile.userId.toString(), // Always stringify the key
+        profile,
+      ]),
+    );
+
+    
+    // 5. Merge data
+    return members.map((member: any) => {
+      const memberIdStr = member.userId?._id?.toString();
+      const profile = memberIdStr ? profileMap.get(memberIdStr) : null;
+
+      return {
+        ...member,
+        fullName: profile?.fullName || 'Unknown User',
+        username: profile?.username || '',
+        profileImage: profile?.profileImageUrl || '',
+        email: member.userId?.email || '',
+      };
+    });
   };
 
   updateMemberRole = async (groupId: string, memberUserId: string, dto: UpdateMemberRoleDto, user: any) => {
@@ -318,6 +367,27 @@ export class GroupsService {
 
     await this.assertGroupAdmin(gId, user);
 
+    const adminCount = await this.memberModel.countDocuments({
+      groupId: gId,
+      role: MemberRole.ADMIN,
+      isActive: true,
+    });
+
+    const member = await this.memberModel.findOne({
+      groupId: gId,
+      userId: uId,
+      isActive: true,
+    });
+
+    if (
+      member?.role === MemberRole.ADMIN &&
+      adminCount <= 1
+    ) {
+      throw new BadRequestException(
+        'Cannot remove the last admin of the group',
+      );
+    }
+
     const updated = await this.memberModel.findOneAndUpdate(
       { groupId: gId, userId: uId, isActive: true },
       { $set: { isActive: false, removedAt: new Date() } },
@@ -333,4 +403,24 @@ export class GroupsService {
     const groupIds = memberships.map((m) => m.groupId);
     return this.groupModel.find({ _id: { $in: groupIds }, isDeleted: false });
   };
+
+  /**
+ * Fetches all active member emails for a given group.
+ * Uses population to avoid manual loops and multiple queries.
+ */
+  async getGroupMemberEmails(groupId: Types.ObjectId | string): Promise<string[]> {
+    const members = await this.memberModel
+      .find({
+        groupId,
+        isActive: true,
+      })
+      .populate('userId', 'email fullName')
+      .lean();
+
+    // Edge Case: Filter out any members where the user or email might be missing
+    return members
+      .map((m: any) => m.userId?.email)
+      .filter((email) => !!email);
+  }
+
 }
