@@ -26,7 +26,7 @@ export class CreateGroupDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(1200)
+  @MaxLength(3000)
   description?: string;
 
   @IsOptional()

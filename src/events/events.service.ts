@@ -72,9 +72,11 @@ export class EventsService {
         });
 
         // Fire-and-forget AI summary
-        if (this.aiSummaryService.shouldSummarise(dto.description)) {
-            this.triggerAiSummary(event._id.toString(), dto.description);
-        }
+        // Fire-and-forget AI summary
+        this.triggerAiSummary(
+            event._id.toString(),
+            dto.description,
+        );
 
         // ── EMAIL NOTIFICATION LOGIC ─────────────────────────────
         try {
@@ -84,28 +86,39 @@ export class EventsService {
                 .lean();
 
             if (populatedEvent) {
-                // TODO:
-                // Replace with actual group member emails
+
+                console.log('EVENT:', populatedEvent);
+
+                const groupId = (populatedEvent.groupId as any)._id;
+
+                console.log('GROUP ID:', groupId);
+
                 const members = await this.groupMemberModel
                     .find({
-                        groupId: populatedEvent.groupId,
-                        status: 'APPROVED',
+                        groupId,
+                        isActive: true,
                     })
                     .populate('userId', 'email')
                     .lean();
 
-                const memberEmails = members.map(
-                    (member: any) => member.userId.email,
-                );
+                console.log('GROUP MEMBERS:', members);
 
-                await this.mailService.sendNewEventEmail({
-                    to: memberEmails,
-                    societyName: (populatedEvent.groupId as any).name,
-                    title: populatedEvent.title,
-                    date: populatedEvent.startDateTime.toISOString(),
-                    eventUrl: `${process.env.FRONTEND_URL}/events/${populatedEvent._id}`,
-                    registrationLink: populatedEvent.registrationLink,
-                });
+                const memberEmails = members
+                    .map((member: any) => member.email || member.userId?.email)
+                    .filter(Boolean);
+
+                console.log('MEMBER EMAILS:', memberEmails);
+
+                if (memberEmails.length > 0) {
+                    await this.mailService.sendNewEventEmail({
+                        to: memberEmails,
+                        societyName: (populatedEvent.groupId as any).name,
+                        title: populatedEvent.title,
+                        date: populatedEvent.startDateTime.toISOString(),
+                        eventUrl: `${process.env.FRONTEND_URL}/events/${populatedEvent._id}`,
+                        registrationLink: populatedEvent.registrationLink,
+                    });
+                }
             }
         } catch (error) {
             this.logger.error('Failed to send event creation emails', error);
@@ -123,12 +136,13 @@ export class EventsService {
             isDeleted: false,
         };
 
+        // 1. Handle Filtering Logic
         if (upcoming) {
-            // upcoming overrides any user-provided status filter
+            // For upcoming, we want events starting from now onwards
             filter.startDateTime = { $gte: new Date() };
             filter.status = EventStatus.PUBLISHED;
-        } else {
-            if (status) filter.status = status;
+        } else if (status) {
+            filter.status = status;
         }
 
         if (groupId) filter.groupId = new Types.ObjectId(groupId);
@@ -142,11 +156,18 @@ export class EventsService {
             ];
         }
 
+        // 2. Define Sorting Logic (DRY Principle)
+        // If 'upcoming' is requested, sort by soonest starting (startDateTime: 1)
+        // Otherwise, show the most recently created events (createdAt: -1)
+        const sortOptions = upcoming
+            ? { startDateTime: 1 }
+            : { createdAt: -1 };
+
         const [data, total] = await Promise.all([
             this.eventModel
                 .find(filter)
                 .populate('groupId', 'name')
-                .sort({ startDateTime: 1 })
+                .sort(sortOptions as any) // Apply dynamic sort
                 .skip(getSkip(page, limit))
                 .limit(limit)
                 .lean()
@@ -209,33 +230,59 @@ export class EventsService {
             .lean()
             .exec();
 
-        if (
-            descriptionChanged &&
-            this.aiSummaryService.shouldSummarise(dto.description!)
-        ) {
-            this.triggerAiSummary(id, dto.description!);
+        if (descriptionChanged) {
+
+            this.triggerAiSummary(
+                id,
+                dto.description!,
+            );
         }
 
         // ── EMAIL NOTIFICATION LOGIC ─────────────────────────────
         try {
             if (updated) {
+
                 const populatedEvent = await this.eventModel
                     .findById(updated._id)
                     .populate('groupId', 'name')
                     .lean();
 
-                // TODO:
-                // Replace with actual group member emails
-                const memberEmails: string[] = [];
+                if (populatedEvent) {
 
-                await this.mailService.sendUpdatedEventEmail({
-                    to: memberEmails,
-                    societyName: (populatedEvent?.groupId as any).name,
-                    title: populatedEvent?.title || '',
-                    date: populatedEvent?.startDateTime.toISOString() || '',
-                    eventUrl: `${process.env.FRONTEND_URL}/events/${updated._id}`,
-                    registrationLink: populatedEvent?.registrationLink,
-                });
+                    const groupId = (populatedEvent.groupId as any)._id;
+
+                    console.log('UPDATE EVENT GROUP ID:', groupId);
+
+                    const members = await this.groupMemberModel
+                        .find({
+                            groupId,
+                            isActive: true,
+                        })
+                        .populate('userId', 'email')
+                        .lean();
+
+                    console.log('UPDATE EVENT MEMBERS:', members);
+
+                    const memberEmails = members
+                        .map((member: any) => member.email || member.userId?.email)
+                        .filter(Boolean);
+
+                    console.log('UPDATE EVENT EMAILS:', memberEmails);
+
+                    if (memberEmails.length > 0) {
+
+                        await this.mailService.sendUpdatedEventEmail({
+                            to: memberEmails,
+                            societyName: (populatedEvent.groupId as any).name,
+                            title: populatedEvent.title,
+                            date: populatedEvent.startDateTime.toISOString(),
+                            eventUrl: `${process.env.FRONTEND_URL}/events/${updated._id}`,
+                            registrationLink: populatedEvent.registrationLink,
+                        });
+
+                        console.log('Updated event emails sent successfully');
+                    }
+                }
             }
         } catch (error) {
             this.logger.error('Failed to send event update emails', error);
@@ -267,6 +314,51 @@ export class EventsService {
             )
             .lean()
             .exec();
+
+        // ── EMAIL NOTIFICATION LOGIC ─────────────────────────────
+        try {
+            if (updated) {
+
+                const populatedEvent = await this.eventModel
+                    .findById(updated._id)
+                    .populate('groupId', 'name')
+                    .lean();
+
+                if (populatedEvent) {
+
+                    const groupId = (populatedEvent.groupId as any)._id;
+
+                    const members = await this.groupMemberModel
+                        .find({
+                            groupId,
+                            isActive: true,
+                        })
+                        .populate('userId', 'email')
+                        .lean();
+
+                    const memberEmails = members
+                        .map((member: any) => member.email || member.userId?.email)
+                        .filter(Boolean);
+
+                    console.log('CANCEL EVENT EMAILS:', memberEmails);
+
+                    if (memberEmails.length > 0) {
+
+                        await this.mailService.sendCancelledEventEmail({
+                            to: memberEmails,
+                            societyName: (populatedEvent.groupId as any).name,
+                            title: populatedEvent.title,
+                            date: populatedEvent.startDateTime.toISOString(),
+                            eventUrl: `${process.env.FRONTEND_URL}/events/${updated._id}`,
+                        });
+
+                        console.log('Cancelled event emails sent successfully');
+                    }
+                }
+            }
+        } catch (error) {
+            this.logger.error('Failed to send event cancellation emails', error);
+        }
 
         return updated as EventDocument;
     }

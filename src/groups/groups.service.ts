@@ -135,9 +135,31 @@ export class GroupsService {
 
     // If approved, auto-make creator an ADMIN member
     if (status === GroupStatus.APPROVED) {
+
+      // Get creator user
+      const creator = await this.usersService.findById(
+        group.createdBy.toString(), // FIX: ObjectId -> string
+      );
+
+      if (!creator) {
+        throw new NotFoundException('Creator not found');
+      }
+
       await this.memberModel.updateOne(
-        { groupId: _id, userId: group.createdBy },
-        { $setOnInsert: { role: MemberRole.ADMIN, isActive: true } },
+        {
+          groupId: _id,
+          userId: group.createdBy,
+        },
+        {
+          $set: {
+            isActive: true,
+            removedAt: null,
+            email: creator.email, // IMPORTANT
+          },
+          $setOnInsert: {
+            role: MemberRole.ADMIN,
+          },
+        },
         { upsert: true },
       );
     }
@@ -173,7 +195,16 @@ export class GroupsService {
     if (group.joinPolicy === JoinPolicy.OPEN) {
       await this.memberModel.updateOne(
         { groupId: _id, userId: user._id },
-        { $set: { isActive: true, removedAt: null }, $setOnInsert: { role: MemberRole.MEMBER } },
+        {
+          $set: {
+            isActive: true,
+            removedAt: null,
+            email: user.email,
+          },
+          $setOnInsert: {
+            role: MemberRole.MEMBER,
+          },
+        },
         { upsert: true },
       );
 
@@ -227,15 +258,29 @@ export class GroupsService {
 
     await this.joinRequestModel.updateOne(
       { _id: rId },
-      { $set: { status: decision, actionBy: user._id, actionAt: new Date() } },
+      { $set: { status: decision, actionBy: user._id, email: user.email, actionAt: new Date() } },
     );
 
     if (decision === JoinRequestStatus.APPROVED) {
+      const requestUser = await this.usersService.findById(
+        reqDoc.userId.toString(),
+      );
+
+      if (!requestUser) {
+        throw new NotFoundException('User not found');
+      }
+
       await this.memberModel.updateOne(
         { groupId: gId, userId: reqDoc.userId },
         {
-          $set: { isActive: true, removedAt: null },
-          $setOnInsert: { role: MemberRole.MEMBER },
+          $set: {
+            isActive: true,
+            removedAt: null,
+            email: requestUser.email,
+          },
+          $setOnInsert: {
+            role: MemberRole.MEMBER,
+          },
         },
         { upsert: true },
       );
@@ -325,7 +370,7 @@ export class GroupsService {
       ]),
     );
 
-    
+
     // 5. Merge data
     return members.map((member: any) => {
       const memberIdStr = member.userId?._id?.toString();
@@ -409,18 +454,20 @@ export class GroupsService {
  * Uses population to avoid manual loops and multiple queries.
  */
   async getGroupMemberEmails(groupId: Types.ObjectId | string): Promise<string[]> {
-    const members = await this.memberModel
-      .find({
+    const members = await this.memberModel.find(
+      {
         groupId,
         isActive: true,
-      })
-      .populate('userId', 'email fullName')
-      .lean();
-
-    // Edge Case: Filter out any members where the user or email might be missing
-    return members
-      .map((m: any) => m.userId?.email)
-      .filter((email) => !!email);
+      },
+      {
+        email: 1,
+        _id: 0,
+      },
+    );
+    console.log('RAW MEMBERS:', members);
+    const emails = members.map((m) => m.email).filter(Boolean);
+    console.log('FINAL EMAILS:', emails);
+    return emails;
   }
 
 }

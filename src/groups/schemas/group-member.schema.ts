@@ -12,6 +12,10 @@ export class GroupMember {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
+  // ✅ ADD THIS
+  @Prop({ type: String, required: true, lowercase: true, trim: true })
+  email: string;
+
   @Prop({ enum: MemberRole, required: true, default: MemberRole.MEMBER })
   role: MemberRole;
 

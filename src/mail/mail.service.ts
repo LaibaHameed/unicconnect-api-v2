@@ -180,4 +180,56 @@ export class MailService {
     }
   }
 
+  async sendCancelledEventEmail({
+    to,
+    societyName,
+    title,
+    date,
+    eventUrl,
+  }: {
+    to: string[];
+    societyName: string;
+    title: string;
+    date: string;
+    eventUrl: string;
+  }) {
+    return this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject: `Event Cancelled: ${title}`,
+      html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                <h2>Event Cancelled</h2>
+
+                <p>Hello,</p>
+
+                <p>
+                    The following event organized by <strong>${societyName}</strong>
+                    has been cancelled:
+                </p>
+
+                <div style="padding: 12px; background: #f5f5f5; border-radius: 8px;">
+                    <p><strong>Event:</strong> ${title}</p>
+                    <p><strong>Date:</strong> ${new Date(date).toLocaleString()}</p>
+                </div>
+
+                <p>
+                    You can view the event details here:
+                </p>
+
+                <p>
+                    <a href="${eventUrl}">
+                        ${eventUrl}
+                    </a>
+                </p>
+
+                <p style="margin-top: 24px;">
+                    Regards,<br/>
+                    UniConnect
+                </p>
+            </div>
+        `,
+    });
+  }
+
 }
